@@ -20,7 +20,13 @@ public class ChatServer {
     }
 
     private Socket getNewConn() {
-
+        Socket s = null;
+        try {
+            s = ss.accept();
+        } catch (IOException e) {
+            shutdownServer();
+        }
+        return s;
     }
 
     private synchronized void shutdownServer() {
