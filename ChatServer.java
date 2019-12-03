@@ -25,6 +25,14 @@ public class ChatServer {
 
     private synchronized void shutdownServer() {
 
+        for (SocketProcessor s: q) {
+            s.close();
+        }
+        if (!ss.isClosed()) {
+            try {
+                ss.close();
+            } catch (IOException ignored) {}
+        }
     }
 
     public static void main(String[] args) throws IOException {
