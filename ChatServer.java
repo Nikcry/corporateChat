@@ -28,6 +28,7 @@ public class ChatServer {
     }
 
     public static void main(String[] args) throws IOException {
+        new ChatServer(8080).run();
 
     }
 
