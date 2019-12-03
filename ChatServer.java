@@ -5,34 +5,34 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ChatServer {
-    private ServerSocket ss;
-    private Thread serverThread;
-    private int port;
-
+    private ServerSocket ss; // сам сервер-сокет
+    private Thread serverThread; // главная нить обработки сервер-сокета
+    private int port; // порт сервер сокета.
+    //очередь, где храняться все SocketProcessorы для рассылки
     BlockingQueue<SocketProcessor> q = new LinkedBlockingQueue<SocketProcessor>();
 
     public ChatServer(int port) throws IOException {
-        ss = new ServerSocket(port);
-        this.port = port;
+        ss = new ServerSocket(port); // создаем сервер-сокет
+        this.port = port; // сохраняем порт.
     }
 
     void run() {
-        serverThread = Thread.currentThread();
-        while (true) {
-            Socket s = getNewConn();
-            if (serverThread.isInterrupted()) {
-
+        serverThread = Thread.currentThread(); // со старта сохраняем нить (чтобы можно ее было interrupt())
+        while (true) { //бесконечный цикл, типа...
+            Socket s = getNewConn(); // получить новое соединение или фейк-соедиение
+            if (serverThread.isInterrupted()) { // если это фейк-соединение, то наша нить была interrupted(),
+                // надо прерваться
                 break;
-            } else if (s != null){
+            } else if (s != null){ // "только если коннект успешно создан"...
                 try {
-                    final SocketProcessor processor = new SocketProcessor(s);
-                    final Thread thread = new Thread(processor);
-                    thread.setDaemon(true);
-                    thread.start();
-                    q.offer(processor);
-                }
-
-                catch (IOException ignored) {}
+                    final SocketProcessor processor = new SocketProcessor(s); // создаем сокет-процессор
+                    final Thread thread = new Thread(processor); // создаем отдельную асинхронную нить чтения из сокета
+                    thread.setDaemon(true); //ставим ее в демона (чтобы не ожидать ее закрытия)
+                    thread.start(); //запускаем
+                    q.offer(processor); //добавляем в список активных сокет-процессоров
+                } //тут прикол в замысле. Если попытка создать (new SocketProcessor()) безуспешна,
+                // то остальные строки обойдем, нить запускать не будем, в список не сохраним
+                catch (IOException ignored) {}  // само же исключение создания коннекта нам не интересно.
             }
         }
     }
@@ -42,13 +42,13 @@ public class ChatServer {
         try {
             s = ss.accept();
         } catch (IOException e) {
-            shutdownServer();
+            shutdownServer(); // если ошибка в момент приема - "гасим" сервер
         }
         return s;
     }
 
     private synchronized void shutdownServer() {
-
+        // обрабатываем список рабочих коннектов, закрываем каждый
         for (SocketProcessor s: q) {
             s.close();
         }
@@ -60,14 +60,14 @@ public class ChatServer {
     }
 
     public static void main(String[] args) throws IOException {
-        new ChatServer(8080).run();
-
+        new ChatServer(8080).run(); // если сервер не создался, программа
+        // вылетит по эксепшену, и метод run() не запуститься
     }
 
     private class SocketProcessor implements Runnable{
-        Socket s;
-        BufferedReader br;
-        BufferedWriter bw;
+        Socket s; // наш сокет
+        BufferedReader br; // буферизировнный читатель сокета
+        BufferedWriter bw; // буферизированный писатель в сокет
 
         SocketProcessor(Socket socketParam) throws IOException {
             s = socketParam;
@@ -76,25 +76,25 @@ public class ChatServer {
         }
 
         public void run() {
-            while (!s.isClosed()) {
+            while (!s.isClosed()) { // пока сокет не закрыт...
                 String line = null;
                 try {
-                    line = br.readLine();
+                    line = br.readLine(); // пробуем прочесть.
                 } catch (IOException e) {
-                    close();
+                    close(); // если не получилось - закрываем сокет.
                 }
 
-                if (line == null) {
-                    close();
-                } else if ("shutdown".equals(line)) {
-                    serverThread.interrupt();
+                if (line == null) { // если строка null - клиент отключился в штатном режиме.
+                    close(); // то закрываем сокет
+                } else if ("shutdown".equals(line)) { // если поступила команда "погасить сервер", то...
+                    serverThread.interrupt(); // сначала возводим флаг у северной нити о необходимости прерваться.
                     try {
-                        new Socket("localhost", port);
-                    } catch (IOException ignored) {
+                        new Socket("localhost", port); // создаем фейк-коннект (чтобы выйти из .accept())
+                    } catch (IOException ignored) { //ошибки неинтересны
                     } finally {
-                        shutdownServer();
+                        shutdownServer(); // а затем глушим сервер вызовом его метода shutdownServer().
                     }
-                } else {
+                } else { // иначе - банальная рассылка по списку сокет-процессоров
                     for (SocketProcessor sp:q) {
                         sp.send(line);
                     }
@@ -104,19 +104,19 @@ public class ChatServer {
 
         public synchronized void send(String line) {
             try {
-                bw.write(line);
-                bw.write("\n");
-                bw.flush();
+                bw.write(line); // пишем строку
+                bw.write("\n"); // пишем перевод строки
+                bw.flush(); // отправляем
             } catch (IOException e) {
-                close();
+                close(); //если глюк в момент отправки - закрываем данный сокет.
             }
         }
 
         public synchronized void close() {
-            q.remove(this);
+            q.remove(this); //убираем из списка
             if (!s.isClosed()) {
                 try {
-                    s.close();
+                    s.close(); // закрываем
                 } catch (IOException ignored) {}
             }
         }
