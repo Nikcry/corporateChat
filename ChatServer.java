@@ -17,7 +17,24 @@ public class ChatServer {
     }
 
     void run() {
+        serverThread = Thread.currentThread();
+        while (true) {
+            Socket s = getNewConn();
+            if (serverThread.isInterrupted()) {
 
+                break;
+            } else if (s != null){
+                try {
+                    final SocketProcessor processor = new SocketProcessor(s);
+                    final Thread thread = new Thread(processor);
+                    thread.setDaemon(true);
+                    thread.start();
+                    q.offer(processor);
+                }
+
+                catch (IOException ignored) {}
+            }
+        }
     }
 
     private Socket getNewConn() {
