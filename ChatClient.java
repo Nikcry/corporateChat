@@ -29,6 +29,25 @@ public class ChatClient {
     private class Receiver implements Runnable{
 
         public void run() {
+            while (!s.isClosed()) {
+                String line = null;
+                try {
+                    line = socketReader.readLine();
+                } catch (IOException e) {
 
+                    if ("Socket closed".equals(e.getMessage())) {
+                        break;
+                    }
+                    System.out.println("Connection lost");
+                    close();
+                }
+                if (line == null) {
+                    System.out.println("Server has closed connection");
+                    close();
+                } else {
+                    System.out.println("Server:" + line);
+                }
+            }
+        }
     }
 }
