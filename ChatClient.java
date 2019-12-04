@@ -22,7 +22,11 @@ public class ChatClient {
     }
 
     public static void main(String[] args)  {
-
+        try {
+            new ChatClient("localhost", 8080).run();
+        } catch (IOException e) {
+            System.out.println("Unable to connect. Server not running?");
+        }
     }
 
 
