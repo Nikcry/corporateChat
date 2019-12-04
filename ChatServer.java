@@ -4,6 +4,9 @@ import java.io.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * Класс сервера. Сидит тихо на порту, принимает сообщение, создает SocketProcessor на каждое сообщение
+ */
 public class ChatServer {
     private ServerSocket ss; // сам сервер-сокет
     private Thread serverThread; // главная нить обработки сервер-сокета
@@ -11,11 +14,19 @@ public class ChatServer {
     //очередь, где храняться все SocketProcessorы для рассылки
     BlockingQueue<SocketProcessor> q = new LinkedBlockingQueue<SocketProcessor>();
 
+    /**
+     * Конструктор объекта сервера
+     * @param port Порт, где будем слушать входящие сообщения.
+     * @throws IOException Если не удасться создать сервер-сокет, вылетит по эксепшену, объект Сервера не будет создан
+     */
     public ChatServer(int port) throws IOException {
         ss = new ServerSocket(port); // создаем сервер-сокет
         this.port = port; // сохраняем порт.
     }
 
+    /**
+     * главный цикл прослушивания/ожидания коннекта.
+     */
     void run() {
         serverThread = Thread.currentThread(); // со старта сохраняем нить (чтобы можно ее было interrupt())
         while (true) { //бесконечный цикл, типа...
@@ -37,6 +48,10 @@ public class ChatServer {
         }
     }
 
+    /**
+     * Ожидает новое подключение.
+     * @return Сокет нового подключения
+     */
     private Socket getNewConn() {
         Socket s = null;
         try {
@@ -47,6 +62,9 @@ public class ChatServer {
         return s;
     }
 
+    /**
+     * метод "глушения" сервера
+     */
     private synchronized void shutdownServer() {
         // обрабатываем список рабочих коннектов, закрываем каждый
         for (SocketProcessor s: q) {
@@ -59,22 +77,38 @@ public class ChatServer {
         }
     }
 
+    /**
+     * входная точка программы
+     * @param args
+     * @throws IOException
+     */
     public static void main(String[] args) throws IOException {
         new ChatServer(8080).run(); // если сервер не создался, программа
         // вылетит по эксепшену, и метод run() не запуститься
     }
 
+    /**
+     * вложенный класс асинхронной обработки одного коннекта.
+     */
     private class SocketProcessor implements Runnable{
         Socket s; // наш сокет
         BufferedReader br; // буферизировнный читатель сокета
         BufferedWriter bw; // буферизированный писатель в сокет
 
+        /**
+         * Сохраняем сокет, пробуем создать читателя и писателя. Если не получается - вылетаем без создания объекта
+         * @param socketParam сокет
+         * @throws IOException Если ошибка в создании br || bw
+         */
         SocketProcessor(Socket socketParam) throws IOException {
             s = socketParam;
             br = new BufferedReader(new InputStreamReader(s.getInputStream(), "UTF-8"));
             bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream(), "UTF-8") );
         }
 
+        /**
+         * Главный цикл чтения сообщений/рассылки
+         */
         public void run() {
             while (!s.isClosed()) { // пока сокет не закрыт...
                 String line = null;
@@ -102,6 +136,10 @@ public class ChatServer {
             }
         }
 
+        /**
+         * Метод посылает в сокет полученную строку
+         * @param line строка на отсылку
+         */
         public synchronized void send(String line) {
             try {
                 bw.write(line); // пишем строку
@@ -112,6 +150,9 @@ public class ChatServer {
             }
         }
 
+        /**
+         * метод аккуратно закрывает сокет и убирает его со списка активных сокетов
+         */
         public synchronized void close() {
             q.remove(this); //убираем из списка
             if (!s.isClosed()) {
@@ -121,6 +162,10 @@ public class ChatServer {
             }
         }
 
+        /**
+         * финализатор просто на всякий случай.
+         * @throws Throwable
+         */
         @Override
         protected void finalize() throws Throwable {
             super.finalize();
