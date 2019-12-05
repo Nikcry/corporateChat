@@ -18,7 +18,14 @@ public class ChatClient {
 
 
     public synchronized void close() {
-
+        if (!s.isClosed()) {
+            try {
+                s.close();
+                System.exit(0);
+            } catch (IOException ignored) {
+                ignored.printStackTrace();
+            }
+        }
     }
 
     public static void main(String[] args)  {
