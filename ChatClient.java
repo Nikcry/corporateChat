@@ -13,7 +13,26 @@ public class ChatClient {
 
 
     public void run() {
+        System.out.println("Type phrase(s) (hit Enter to exit):");
+        while (true) {
+            String userString = null;
+            try {
+                userString = userInput.readLine();
+            } catch (IOException ignored) {}
 
+            if (userString == null || userString.length() == 0 || s.isClosed()) {
+                close();
+                break;
+            } else {
+                try {
+                    socketWriter.write(userString);
+                    socketWriter.write("\n");
+                    socketWriter.flush();
+                } catch (IOException e) {
+                    close();
+                }
+            }
+        }
     }
 
 
